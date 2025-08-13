@@ -1,0 +1,113 @@
+# Medical Imaging Workstation - Requirements
+# Aplicación de visualización médica para análisis de cáncer prostático
+# Compatible con Python 3.8+
+
+# === DEPENDENCIAS CRÍTICAS ===
+# Framework de interfaz gráfica
+PyQt6>=6.0.0,<7.0.0
+
+# Procesamiento numérico
+numpy>=1.20.0,<2.0.0
+
+# Manejo de imágenes médicas DICOM
+pydicom>=2.3.0,<3.0.0
+SimpleITK>=2.2.0,<3.0.0
+
+# Visualización 3D médica
+vtk>=9.2.0,<10.0.0
+
+# === DEPENDENCIAS DE IA (OPCIONALES) ===
+# PyTorch para modelos de IA
+torch>=1.12.0,<3.0.0
+torchvision>=0.13.0,<1.0.0
+
+# nnUNet para segmentación médica automática
+# Nota: Instalar desde fuente si no está en PyPI
+# git+https://github.com/MIC-DKFZ/nnUNet.git
+
+# === PROCESAMIENTO DE IMÁGENES ===
+# Algoritmos de procesamiento
+scipy>=1.9.0,<2.0.0
+scikit-image>=0.19.0,<1.0.0
+
+# Visualización adicional
+matplotlib>=3.5.0,<4.0.0
+Pillow>=9.0.0,<11.0.0
+
+# === CONFIGURACIÓN Y UTILIDADES ===
+# Configuración YAML
+PyYAML>=6.0,<7.0
+
+# Información del sistema
+psutil>=5.8.0,<6.0.0
+
+# === DESARROLLO Y TESTING ===
+# Framework de testing
+pytest>=7.0.0,<8.0.0
+pytest-asyncio>=0.21.0,<1.0.0
+pytest-qt>=4.2.0,<5.0.0
+
+# Cobertura de código
+pytest-cov>=4.0.0,<5.0.0
+
+# Análisis de código
+black>=22.0.0,<24.0.0
+flake8>=5.0.0,<7.0.0
+mypy>=1.0.0,<2.0.0
+
+# === DOCUMENTACIÓN ===
+# Generación de documentación
+Sphinx>=5.0.0,<8.0.0
+sphinx-rtd-theme>=1.0.0,<2.0.0
+
+# === DISTRIBUCIÓN ===
+# Empaquetado
+setuptools>=65.0.0
+wheel>=0.37.0
+build>=0.8.0
+
+# === DEPENDENCIAS DE SISTEMA ESPECÍFICAS ===
+
+# Para Linux: OpenGL y multimedia
+# Instalar por separado:
+# sudo apt-get install python3-opengl mesa-utils
+# sudo apt-get install libgl1-mesa-dev libglu1-mesa-dev
+
+# Para Windows: Visual C++ Redistributable
+# Descargar desde Microsoft
+
+# Para macOS: Xcode Command Line Tools
+# xcode-select --install
+
+# === DEPENDENCIAS OPCIONALES AVANZADAS ===
+
+# Aceleración GPU (CUDA)
+# Descommentar si se tiene GPU NVIDIA:
+# torch-audio>=0.12.0  # Si se necesita procesamiento de audio
+# torchaudio>=0.12.0
+
+# Base de datos para almacenamiento avanzado
+# sqlalchemy>=1.4.0,<3.0.0
+# alembic>=1.8.0,<2.0.0
+
+# APIs web para integración
+# fastapi>=0.95.0,<1.0.0
+# uvicorn>=0.20.0,<1.0.0
+
+# Networking DICOM
+# pynetdicom>=2.0.0,<3.0.0
+
+# === NOTAS DE INSTALACIÓN ===
+
+# Instalación básica:
+# pip install -r requirements.txt
+
+# Instalación con IA:
+# pip install -r requirements.txt
+# pip install git+https://github.com/MIC-DKFZ/nnUNet.git
+
+# Instalación para desarrollo:
+# pip install -r requirements.txt -r requirements-dev.txt
+
+# Verificación de instalación:
+# python -c "import PyQt6, vtk, pydicom, SimpleITK; print('OK')"
