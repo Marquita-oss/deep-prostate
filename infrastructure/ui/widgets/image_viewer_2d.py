@@ -20,8 +20,8 @@ from PyQt6.QtGui import (
     QPainterPath, QFont, QMouseEvent, QPaintEvent
 )
 
-from ....domain.entities.medical_image import MedicalImage, ImagePlaneType
-from ....domain.entities.segmentation import MedicalSegmentation, AnatomicalRegion
+from domain.entities.medical_image import MedicalImage, ImagePlaneType
+from domain.entities.segmentation import MedicalSegmentation, AnatomicalRegion
 
 
 class MedicalImageCanvas(QLabel):

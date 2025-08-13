@@ -17,8 +17,8 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt, pyqtSignal, QTimer, QThread, pyqtSlot
 from PyQt6.QtGui import QAction, QIcon, QFont, QPixmap
 
-from ....domain.entities.medical_image import MedicalImage, ImageModalityType
-from ....infrastructure.storage.dicom_repository import DICOMImageRepository
+from domain.entities.medical_image import MedicalImage, ImageModalityType
+from infrastructure.storage.dicom_repository import DICOMImageRepository
 
 
 class PatientDataLoader(QThread):

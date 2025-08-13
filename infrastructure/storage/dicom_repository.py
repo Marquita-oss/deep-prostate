@@ -19,10 +19,10 @@ import pydicom
 from pydicom.dataset import Dataset, FileDataset
 import SimpleITK as sitk
 
-from ...domain.entities.medical_image import (
+from domain.entities.medical_image import (
     MedicalImage, ImageSpacing, ImageModalityType, WindowLevel
 )
-from ...domain.repositories.repositories import (
+from domain.repositories.repositories import (
     MedicalImageRepository, RepositoryError, ImageNotFoundError,
     DuplicateEntityError, InvalidQueryError
 )

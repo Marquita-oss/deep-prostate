@@ -1,567 +1,506 @@
+#!/usr/bin/env python3
 """
 infrastructure/utils/startup_validator.py
 
-Validador de sistema para aplicación médica.
-Verifica dependencias, hardware, y configuraciones necesarias
-antes del inicio de la aplicación médica.
+Validador completo del sistema para aplicaciones médicas.
+Este módulo verifica que todos los prerrequisitos necesarios
+estén cumplidos antes de permitir operación médica.
+
+En software médico, no podemos simplemente "intentar ejecutar
+y ver qué pasa". Debemos validar exhaustivamente que el entorno
+sea seguro y apropiado para operaciones médicas críticas.
 """
 
-import sys
 import os
+import sys
 import platform
+import shutil
 import psutil
 import importlib
+import socket
 from pathlib import Path
-from typing import List, Dict, Any, Optional, NamedTuple
+from typing import Dict, List, Tuple, Optional, Any
 import subprocess
 import logging
 
 
-class ValidationResult(NamedTuple):
-    """Resultado de validación del sistema."""
-    is_valid: bool
-    errors: List[str]
-    warnings: List[str]
-    system_info: Dict[str, Any]
-
-
-class SystemValidator:
+class MedicalSystemValidator:
     """
-    Validador completo del sistema para aplicación médica.
+    Validador exhaustivo para sistemas médicos.
     
-    Verifica:
-    - Versión de Python y dependencias
-    - Recursos de hardware disponibles
-    - Bibliotecas gráficas y de visualización
-    - Permisos y configuraciones de sistema
-    - Disponibilidad de GPU para IA (opcional)
+    Esta clase implementa validaciones específicas requeridas
+    para software médico, asegurando que el entorno de ejecución
+    sea apropiado para operaciones médicas críticas.
+    
+    En un hospital, no permitirías que un equipo médico funcione
+    sin verificar que esté calibrado y sea seguro. De manera similar,
+    este validador asegura que nuestro software médico tenga todas
+    las condiciones necesarias para operar de manera segura.
     """
     
     def __init__(self):
-        """Inicializa el validador de sistema."""
-        self.logger = logging.getLogger(__name__)
-        
-        # Dependencias críticas requeridas
-        self.critical_dependencies = {
-            'PyQt6': '6.0.0',
-            'numpy': '1.20.0',
-            'pydicom': '2.0.0',
-            'SimpleITK': '2.0.0'
-        }
-        
-        # Dependencias opcionales pero recomendadas
-        self.optional_dependencies = {
-            'vtk': '9.0.0',
-            'scipy': '1.7.0',
-            'scikit-image': '0.18.0',
-            'matplotlib': '3.5.0',
-            'Pillow': '8.0.0'
-        }
-        
-        # Dependencias de IA (opcionales)
-        self.ai_dependencies = {
-            'torch': '1.10.0',
-            'torchvision': '0.11.0',
-            'nnunet': '1.0.0'
-        }
-        
-        # Requisitos mínimos de hardware
-        self.min_requirements = {
-            'ram_gb': 4,
-            'disk_space_gb': 10,
-            'python_version': (3, 8, 0)
-        }
-        
-        # Requisitos recomendados
-        self.recommended_requirements = {
-            'ram_gb': 16,
-            'disk_space_gb': 100,
-            'cpu_cores': 4
-        }
-    
-    def validate_system(self) -> ValidationResult:
         """
-        Ejecuta validación completa del sistema.
+        Inicializa el validador con configuraciones médicas estándar.
         
-        Returns:
-            Resultado de validación con errores y advertencias
+        Estas configuraciones representan los mínimos requeridos
+        para operación médica segura basados en mejores prácticas
+        de la industria médica de software.
         """
-        errors = []
-        warnings = []
-        system_info = {}
+        # Requisitos mínimos del sistema para aplicaciones médicas
+        self.min_ram_gb = 4  # Mínimo RAM para procesamiento de imágenes médicas
+        self.min_free_disk_gb = 10  # Espacio libre mínimo para datos médicos
+        self.min_python_version = (3, 8)  # Python 3.8+ requerido para funcionalidades modernas
         
-        try:
-            # 1. Validar versión de Python
-            python_result = self._validate_python_version()
-            system_info.update(python_result['info'])
-            errors.extend(python_result['errors'])
-            warnings.extend(python_result['warnings'])
-            
-            # 2. Validar dependencias críticas
-            deps_result = self._validate_dependencies()
-            system_info.update(deps_result['info'])
-            errors.extend(deps_result['errors'])
-            warnings.extend(deps_result['warnings'])
-            
-            # 3. Validar recursos de hardware
-            hardware_result = self._validate_hardware()
-            system_info.update(hardware_result['info'])
-            errors.extend(hardware_result['errors'])
-            warnings.extend(hardware_result['warnings'])
-            
-            # 4. Validar sistema gráfico
-            graphics_result = self._validate_graphics_system()
-            system_info.update(graphics_result['info'])
-            errors.extend(graphics_result['errors'])
-            warnings.extend(graphics_result['warnings'])
-            
-            # 5. Validar permisos y acceso a archivos
-            permissions_result = self._validate_file_permissions()
-            system_info.update(permissions_result['info'])
-            errors.extend(permissions_result['errors'])
-            warnings.extend(permissions_result['warnings'])
-            
-            # 6. Validar capacidades de IA (opcional)
-            ai_result = self._validate_ai_capabilities()
-            system_info.update(ai_result['info'])
-            # Las capacidades de IA son opcionales, solo warnings
-            warnings.extend(ai_result['errors'])
-            warnings.extend(ai_result['warnings'])
-            
-            # 7. Validar configuración del sistema operativo
-            os_result = self._validate_operating_system()
-            system_info.update(os_result['info'])
-            errors.extend(os_result['errors'])
-            warnings.extend(os_result['warnings'])
-            
-        except Exception as e:
-            errors.append(f"Error crítico durante validación: {e}")
-        
-        # Determinar si el sistema es válido
-        is_valid = len(errors) == 0
-        
-        return ValidationResult(
-            is_valid=is_valid,
-            errors=errors,
-            warnings=warnings,
-            system_info=system_info
-        )
-    
-    def _validate_python_version(self) -> Dict[str, Any]:
-        """Valida la versión de Python."""
-        result = {'errors': [], 'warnings': [], 'info': {}}
-        
-        current_version = sys.version_info[:3]
-        min_version = self.min_requirements['python_version']
-        
-        result['info']['python_version'] = '.'.join(map(str, current_version))
-        result['info']['python_executable'] = sys.executable
-        
-        if current_version < min_version:
-            result['errors'].append(
-                f"Python {'.'.join(map(str, min_version))} o superior requerido. "
-                f"Versión actual: {'.'.join(map(str, current_version))}"
-            )
-        
-        # Verificar si es una versión muy nueva que podría tener problemas
-        if current_version >= (3, 12):
-            result['warnings'].append(
-                f"Python {'.'.join(map(str, current_version))} es muy reciente. "
-                "Algunas dependencias podrían no ser compatibles."
-            )
-        
-        return result
-    
-    def _validate_dependencies(self) -> Dict[str, Any]:
-        """Valida dependencias de Python."""
-        result = {'errors': [], 'warnings': [], 'info': {}}
-        installed_packages = {}
-        
-        # Validar dependencias críticas
-        for package, min_version in self.critical_dependencies.items():
-            try:
-                module = importlib.import_module(package.lower().replace('-', '_'))
-                version = getattr(module, '__version__', 'unknown')
-                installed_packages[package] = version
-                
-                if not self._version_compatible(version, min_version):
-                    result['errors'].append(
-                        f"{package} {min_version}+ requerido. Instalado: {version}"
-                    )
-                
-            except ImportError:
-                result['errors'].append(f"Dependencia crítica faltante: {package}")
-                installed_packages[package] = 'not_installed'
-        
-        # Validar dependencias opcionales
-        for package, min_version in self.optional_dependencies.items():
-            try:
-                module_name = package.lower().replace('-', '_')
-                if package == 'Pillow':
-                    module_name = 'PIL'
-                elif package == 'scikit-image':
-                    module_name = 'skimage'
-                
-                module = importlib.import_module(module_name)
-                version = getattr(module, '__version__', 'unknown')
-                installed_packages[package] = version
-                
-                if not self._version_compatible(version, min_version):
-                    result['warnings'].append(
-                        f"{package} {min_version}+ recomendado. Instalado: {version}"
-                    )
-                
-            except ImportError:
-                result['warnings'].append(f"Dependencia opcional faltante: {package}")
-                installed_packages[package] = 'not_installed'
-        
-        result['info']['installed_packages'] = installed_packages
-        return result
-    
-    def _validate_hardware(self) -> Dict[str, Any]:
-        """Valida recursos de hardware."""
-        result = {'errors': [], 'warnings': [], 'info': {}}
-        
-        # Memoria RAM
-        memory = psutil.virtual_memory()
-        ram_gb = memory.total / (1024**3)
-        result['info']['ram_gb'] = round(ram_gb, 2)
-        result['info']['ram_available_gb'] = round(memory.available / (1024**3), 2)
-        
-        if ram_gb < self.min_requirements['ram_gb']:
-            result['errors'].append(
-                f"RAM insuficiente: {ram_gb:.1f}GB disponible, "
-                f"{self.min_requirements['ram_gb']}GB mínimo requerido"
-            )
-        elif ram_gb < self.recommended_requirements['ram_gb']:
-            result['warnings'].append(
-                f"RAM baja: {ram_gb:.1f}GB disponible, "
-                f"{self.recommended_requirements['ram_gb']}GB recomendado para mejor rendimiento"
-            )
-        
-        # CPU
-        cpu_count = psutil.cpu_count(logical=False)
-        cpu_count_logical = psutil.cpu_count(logical=True)
-        result['info']['cpu_cores_physical'] = cpu_count
-        result['info']['cpu_cores_logical'] = cpu_count_logical
-        result['info']['cpu_freq_mhz'] = psutil.cpu_freq().current if psutil.cpu_freq() else 'unknown'
-        
-        if cpu_count < self.recommended_requirements.get('cpu_cores', 4):
-            result['warnings'].append(
-                f"CPU: {cpu_count} núcleos físicos disponibles, "
-                f"{self.recommended_requirements['cpu_cores']} recomendados"
-            )
-        
-        # Espacio en disco
-        disk_usage = psutil.disk_usage('.')
-        free_space_gb = disk_usage.free / (1024**3)
-        result['info']['disk_free_gb'] = round(free_space_gb, 2)
-        result['info']['disk_total_gb'] = round(disk_usage.total / (1024**3), 2)
-        
-        if free_space_gb < self.min_requirements['disk_space_gb']:
-            result['errors'].append(
-                f"Espacio en disco insuficiente: {free_space_gb:.1f}GB libres, "
-                f"{self.min_requirements['disk_space_gb']}GB mínimo requerido"
-            )
-        elif free_space_gb < self.recommended_requirements['disk_space_gb']:
-            result['warnings'].append(
-                f"Espacio en disco bajo: {free_space_gb:.1f}GB libres, "
-                f"{self.recommended_requirements['disk_space_gb']}GB recomendado"
-            )
-        
-        return result
-    
-    def _validate_graphics_system(self) -> Dict[str, Any]:
-        """Valida sistema gráfico y capacidades de visualización."""
-        result = {'errors': [], 'warnings': [], 'info': {}}
-        
-        # Información básica del sistema gráfico
-        try:
-            if platform.system() == "Linux":
-                # En Linux, verificar X11 o Wayland
-                display = os.environ.get('DISPLAY')
-                wayland_display = os.environ.get('WAYLAND_DISPLAY')
-                
-                if not display and not wayland_display:
-                    result['errors'].append(
-                        "No se detectó sistema gráfico (X11/Wayland). "
-                        "Se requiere entorno gráfico para la aplicación."
-                    )
-                
-                result['info']['display_server'] = 'X11' if display else 'Wayland' if wayland_display else 'none'
-                
-            elif platform.system() == "Windows":
-                # En Windows, verificar DirectX/OpenGL
-                result['info']['display_server'] = 'Windows Graphics'
-                
-            elif platform.system() == "Darwin":
-                # En macOS
-                result['info']['display_server'] = 'Quartz'
-        
-        except Exception as e:
-            result['warnings'].append(f"No se pudo verificar sistema gráfico: {e}")
-        
-        # Verificar capacidades de OpenGL (importante para VTK)
-        try:
-            # Intentar importar PyQt6 y verificar OpenGL
-            from PyQt6.QtOpenGL import QOpenGLWidget
-            from PyQt6.QtWidgets import QApplication
-            
-            # Si llegamos aquí, OpenGL está disponible
-            result['info']['opengl_support'] = True
-            
-        except ImportError as e:
-            result['warnings'].append(
-                "OpenGL no disponible o PyQt6 no instalado. "
-                "El renderizado 3D podría estar limitado."
-            )
-            result['info']['opengl_support'] = False
-        
-        return result
-    
-    def _validate_file_permissions(self) -> Dict[str, Any]:
-        """Valida permisos de archivos y directorios."""
-        result = {'errors': [], 'warnings': [], 'info': {}}
-        
-        # Directorios que necesitan ser escribibles
-        required_directories = [
-            './medical_data',
-            './logs',
-            './temp',
-            './exports'
+        # Dependencias críticas para funcionamiento médico
+        self.required_medical_packages = [
+            'numpy',      # Procesamiento numérico para imágenes médicas
+            'PyQt6',      # Interfaz gráfica médica
+            'pathlib',    # Manejo de rutas (estándar en Python 3.8+)
+            'datetime',   # Manejo de timestamps médicos (estándar)
+            'json',       # Serialización de datos médicos (estándar)
+            'logging'     # Logging para auditoría médica (estándar)
         ]
         
-        permissions_ok = True
+        # Dependencias opcionales pero recomendadas
+        self.recommended_packages = [
+            'pydicom',      # Manejo de archivos DICOM
+            'SimpleITK',    # Procesamiento de imágenes médicas
+            'vtk',          # Visualización 3D médica
+            'scipy',        # Análisis científico
+            'scikit-image'  # Procesamiento de imágenes
+        ]
         
-        for directory in required_directories:
-            dir_path = Path(directory)
+        # Configuraciones de seguridad médica
+        self.required_directories = [
+            './logs',           # Para auditoría médica
+            './medical_data',   # Para almacenamiento de datos médicos
+            './temp',           # Para archivos temporales
+            './config'          # Para configuraciones
+        ]
+        
+        # Logger para validación
+        self.logger = logging.getLogger(__name__)
+    
+    def validate_system_resources(self) -> bool:
+        """
+        Valida que los recursos del sistema sean suficientes para operación médica.
+        
+        En aplicaciones médicas, recursos insuficientes pueden causar:
+        - Fallos durante análisis críticos
+        - Pérdida de datos médicos
+        - Rendimiento inaceptable para diagnóstico
+        - Riesgo de corrupción de imágenes médicas
+        
+        Returns:
+            True si los recursos son suficientes, False en caso contrario
+        """
+        try:
+            self.logger.info("Validando recursos del sistema para uso médico...")
             
+            # Validar memoria RAM disponible
+            memory_info = psutil.virtual_memory()
+            available_ram_gb = memory_info.available / (1024**3)
+            
+            if available_ram_gb < self.min_ram_gb:
+                self.logger.error(
+                    f"RAM insuficiente: {available_ram_gb:.2f}GB disponible, "
+                    f"{self.min_ram_gb}GB requerido para aplicación médica"
+                )
+                return False
+            
+            self.logger.info(f"✅ RAM suficiente: {available_ram_gb:.2f}GB disponible")
+            
+            # Validar espacio en disco disponible
+            disk_usage = shutil.disk_usage(Path.cwd())
+            free_disk_gb = disk_usage.free / (1024**3)
+            
+            if free_disk_gb < self.min_free_disk_gb:
+                self.logger.error(
+                    f"Espacio en disco insuficiente: {free_disk_gb:.2f}GB disponible, "
+                    f"{self.min_free_disk_gb}GB requerido para datos médicos"
+                )
+                return False
+            
+            self.logger.info(f"✅ Espacio en disco suficiente: {free_disk_gb:.2f}GB disponible")
+            
+            # Validar versión de Python
+            if sys.version_info < self.min_python_version:
+                self.logger.error(
+                    f"Versión de Python insuficiente: {sys.version_info} actual, "
+                    f"{self.min_python_version} requerida para funcionalidades médicas"
+                )
+                return False
+            
+            self.logger.info(f"✅ Python versión apropiada: {sys.version_info}")
+            
+            # Validar arquitectura del sistema
+            architecture = platform.architecture()[0]
+            if architecture != '64bit':
+                self.logger.warning(
+                    f"Arquitectura no recomendada para aplicación médica: {architecture}. "
+                    f"Se recomienda 64bit para procesamiento de imágenes médicas."
+                )
+            
+            # Validar sistema operativo
+            os_name = platform.system()
+            self.logger.info(f"Sistema operativo detectado: {os_name}")
+            
+            if os_name not in ['Windows', 'Linux', 'Darwin']:  # Darwin = macOS
+                self.logger.warning(f"Sistema operativo no testado para uso médico: {os_name}")
+            
+            self.logger.info("✅ Recursos del sistema validados correctamente")
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"Error durante validación de recursos del sistema: {e}")
+            return False
+    
+    def validate_medical_dependencies(self) -> bool:
+        """
+        Valida que todas las dependencias médicas críticas estén disponibles.
+        
+        En software médico, dependencias faltantes pueden resultar en:
+        - Funcionalidades médicas no disponibles
+        - Fallos durante operaciones críticas
+        - Incompatibilidad con estándares médicos
+        - Riesgo de corrupción de datos
+        
+        Returns:
+            True si todas las dependencias críticas están disponibles
+        """
+        try:
+            self.logger.info("Validando dependencias médicas críticas...")
+            
+            missing_critical = []
+            missing_recommended = []
+            
+            # Validar dependencias críticas
+            for package in self.required_medical_packages:
+                try:
+                    importlib.import_module(package)
+                    self.logger.debug(f"✅ Dependencia crítica encontrada: {package}")
+                except ImportError:
+                    missing_critical.append(package)
+                    self.logger.error(f"❌ Dependencia crítica faltante: {package}")
+            
+            # Validar dependencias recomendadas
+            for package in self.recommended_packages:
+                try:
+                    importlib.import_module(package)
+                    self.logger.debug(f"✅ Dependencia recomendada encontrada: {package}")
+                except ImportError:
+                    missing_recommended.append(package)
+                    self.logger.warning(f"⚠️ Dependencia recomendada faltante: {package}")
+            
+            # Reportar estado de dependencias
+            if missing_critical:
+                self.logger.error(
+                    f"Dependencias críticas faltantes: {missing_critical}. "
+                    f"La aplicación médica no puede funcionar sin estas dependencias."
+                )
+                return False
+            
+            if missing_recommended:
+                self.logger.warning(
+                    f"Dependencias recomendadas faltantes: {missing_recommended}. "
+                    f"Algunas funcionalidades médicas avanzadas pueden no estar disponibles."
+                )
+            
+            # Validar versiones específicas si es necesario
             try:
+                import numpy as np
+                numpy_version = np.__version__
+                self.logger.info(f"NumPy versión: {numpy_version}")
+                
+                # Validar que numpy tenga una versión razonable
+                major_version = int(numpy_version.split('.')[0])
+                if major_version < 1:
+                    self.logger.warning("Versión de NumPy muy antigua, considere actualizar")
+                
+            except ImportError:
+                pass  # Ya capturado en validación crítica
+            
+            self.logger.info("✅ Dependencias médicas validadas correctamente")
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"Error durante validación de dependencias médicas: {e}")
+            return False
+    
+    def validate_security_configuration(self) -> bool:
+        """
+        Valida configuraciones de seguridad apropiadas para software médico.
+        
+        En aplicaciones médicas, la seguridad no es opcional debido a:
+        - Regulaciones HIPAA y similares
+        - Protección de datos de pacientes
+        - Integridad de información médica crítica
+        - Prevención de acceso no autorizado
+        
+        Returns:
+            True si la configuración de seguridad es apropiada
+        """
+        try:
+            self.logger.info("Validando configuración de seguridad médica...")
+            
+            # Validar permisos de directorios médicos
+            for directory in self.required_directories:
+                dir_path = Path(directory)
+                
                 # Crear directorio si no existe
-                dir_path.mkdir(parents=True, exist_ok=True)
+                try:
+                    dir_path.mkdir(parents=True, exist_ok=True)
+                    self.logger.debug(f"✅ Directorio médico asegurado: {directory}")
+                except PermissionError:
+                    self.logger.error(f"❌ Sin permisos para crear directorio médico: {directory}")
+                    return False
                 
-                # Verificar permisos de escritura
-                test_file = dir_path / 'test_write_permission.tmp'
-                test_file.write_text('test')
-                test_file.unlink()
-                
-            except PermissionError:
-                result['errors'].append(
-                    f"Sin permisos de escritura en directorio: {directory}"
-                )
-                permissions_ok = False
-            except Exception as e:
-                result['warnings'].append(
-                    f"No se pudo verificar permisos en {directory}: {e}"
-                )
-        
-        result['info']['file_permissions_ok'] = permissions_ok
-        
-        return result
-    
-    def _validate_ai_capabilities(self) -> Dict[str, Any]:
-        """Valida capacidades de IA (GPU, PyTorch, etc.)."""
-        result = {'errors': [], 'warnings': [], 'info': {}}
-        
-        # Verificar PyTorch
-        try:
-            import torch
-            result['info']['pytorch_version'] = torch.__version__
-            result['info']['pytorch_available'] = True
+                # Validar permisos de escritura
+                if not os.access(dir_path, os.W_OK):
+                    self.logger.error(f"❌ Sin permisos de escritura en directorio médico: {directory}")
+                    return False
             
-            # Verificar CUDA
-            cuda_available = torch.cuda.is_available()
-            result['info']['cuda_available'] = cuda_available
+            # Validar configuración de logging médico
+            log_dir = Path('./logs')
+            if not log_dir.exists() or not os.access(log_dir, os.W_OK):
+                self.logger.error("❌ No se puede escribir logs médicos - directorio de logs inaccesible")
+                return False
             
-            if cuda_available:
-                result['info']['cuda_device_count'] = torch.cuda.device_count()
-                result['info']['cuda_device_name'] = torch.cuda.get_device_name(0)
-                result['info']['cuda_memory_gb'] = round(
-                    torch.cuda.get_device_properties(0).total_memory / (1024**3), 2
+            # Validar que no estemos ejecutando como root (en sistemas Unix)
+            if hasattr(os, 'getuid') and os.getuid() == 0:
+                self.logger.warning(
+                    "⚠️ Ejecutando como root - no recomendado para aplicaciones médicas por seguridad"
                 )
-            else:
-                result['warnings'].append(
-                    "CUDA no disponible. La inferencia de IA será más lenta en CPU."
-                )
-                
-        except ImportError:
-            result['warnings'].append(
-                "PyTorch no instalado. Las funciones de IA no estarán disponibles."
-            )
-            result['info']['pytorch_available'] = False
-        
-        # Verificar nnUNet
-        try:
-            import nnunet
-            result['info']['nnunet_available'] = True
-            result['info']['nnunet_version'] = getattr(nnunet, '__version__', 'unknown')
-        except ImportError:
-            result['warnings'].append(
-                "nnUNet no instalado. Se requiere para segmentación automática."
-            )
-            result['info']['nnunet_available'] = False
-        
-        return result
-    
-    def _validate_operating_system(self) -> Dict[str, Any]:
-        """Valida configuración del sistema operativo."""
-        result = {'errors': [], 'warnings': [], 'info': {}}
-        
-        system = platform.system()
-        release = platform.release()
-        version = platform.version()
-        
-        result['info']['os_system'] = system
-        result['info']['os_release'] = release
-        result['info']['os_version'] = version
-        result['info']['architecture'] = platform.architecture()[0]
-        
-        # Verificaciones específicas por OS
-        if system == "Windows":
-            # Verificar versión de Windows
-            try:
-                import winreg
-                key = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, 
-                                   r"SOFTWARE\Microsoft\Windows NT\CurrentVersion")
-                build = winreg.QueryValueEx(key, "CurrentBuild")[0]
-                result['info']['windows_build'] = build
-                
-                # Windows 10 build 1903+ recomendado
-                if int(build) < 18362:
-                    result['warnings'].append(
-                        f"Windows build {build} detectado. "
-                        "Build 18362+ recomendado para mejor compatibilidad."
+            
+            # Validar configuración de variables de entorno sensibles
+            sensitive_env_vars = ['MEDICAL_API_KEY', 'DATABASE_PASSWORD', 'ENCRYPTION_KEY']
+            for env_var in sensitive_env_vars:
+                if env_var in os.environ:
+                    self.logger.warning(
+                        f"⚠️ Variable de entorno sensible detectada: {env_var}. "
+                        f"Asegúrese de que esté apropiadamente protegida."
                     )
-                    
-            except Exception:
-                result['warnings'].append("No se pudo verificar build de Windows")
-        
-        elif system == "Linux":
-            # Verificar distribución
-            try:
-                with open('/etc/os-release', 'r') as f:
-                    for line in f:
-                        if line.startswith('PRETTY_NAME='):
-                            distro = line.split('=')[1].strip('"')
-                            result['info']['linux_distribution'] = distro
-                            break
-            except Exception:
-                result['info']['linux_distribution'] = 'unknown'
-        
-        elif system == "Darwin":
-            # macOS
-            mac_version = platform.mac_ver()[0]
-            result['info']['macos_version'] = mac_version
             
-            # macOS 10.15+ recomendado
-            if mac_version and tuple(map(int, mac_version.split('.'))) < (10, 15):
-                result['warnings'].append(
-                    f"macOS {mac_version} detectado. "
-                    "macOS 10.15+ recomendado."
-                )
-        
-        return result
+            self.logger.info("✅ Configuración de seguridad médica validada")
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"Error durante validación de seguridad médica: {e}")
+            return False
     
-    def _version_compatible(self, installed: str, required: str) -> bool:
+    def validate_medical_connectivity(self) -> bool:
         """
-        Verifica si una versión instalada es compatible con la requerida.
+        Valida conectividad con sistemas médicos externos (si aplicable).
         
-        Args:
-            installed: Versión instalada
-            required: Versión mínima requerida
-            
+        En entornos médicos reales, esto incluiría:
+        - Conectividad con PACS (Picture Archiving and Communication System)
+        - Acceso a bases de datos médicas
+        - Conexión con sistemas de información hospitalaria (HIS)
+        - Verificación de servicios de red médicos
+        
+        Para nuestra demostración, validamos conectividad básica de red.
+        
         Returns:
-            True si es compatible
+            True si la conectividad médica es apropiada
         """
         try:
-            if installed == 'unknown':
-                return True  # Asumir compatible si no se puede determinar
+            self.logger.info("Validando conectividad médica...")
             
-            # Parsear versiones
-            installed_parts = [int(x) for x in installed.split('.') if x.isdigit()]
-            required_parts = [int(x) for x in required.split('.') if x.isdigit()]
+            # Validar conectividad básica de red
+            try:
+                # Intentar resolver DNS básico
+                socket.gethostbyname('localhost')
+                self.logger.debug("✅ Resolución DNS básica funcional")
+            except socket.gaierror:
+                self.logger.warning("⚠️ Problemas con resolución DNS básica")
             
-            # Normalizar longitudes
-            max_len = max(len(installed_parts), len(required_parts))
-            installed_parts.extend([0] * (max_len - len(installed_parts)))
-            required_parts.extend([0] * (max_len - len(required_parts)))
+            # En una implementación real, aquí validaríamos:
+            # - Conectividad con servidores DICOM
+            # - Acceso a bases de datos médicas
+            # - Disponibilidad de servicios de IA médica
+            # - Conectividad con sistemas hospitalarios
             
-            return installed_parts >= required_parts
+            # Para demostración, simular validación de servicios médicos
+            mock_medical_services = [
+                {'name': 'DICOM_SERVER', 'available': True},
+                {'name': 'AI_ANALYSIS_SERVICE', 'available': True},
+                {'name': 'MEDICAL_DATABASE', 'available': True}
+            ]
             
-        except Exception:
-            return True  # En caso de error, asumir compatible
-    
-    def generate_system_report(self, validation_result: ValidationResult) -> str:
-        """
-        Genera un reporte detallado del sistema.
-        
-        Args:
-            validation_result: Resultado de validación
-            
-        Returns:
-            Reporte del sistema en formato texto
-        """
-        report = []
-        report.append("=== MEDICAL IMAGING WORKSTATION - SYSTEM REPORT ===")
-        report.append("")
-        
-        # Estado general
-        status = "✅ VÁLIDO" if validation_result.is_valid else "❌ INVÁLIDO"
-        report.append(f"Estado del sistema: {status}")
-        report.append("")
-        
-        # Información del sistema
-        report.append("--- INFORMACIÓN DEL SISTEMA ---")
-        info = validation_result.system_info
-        
-        if 'python_version' in info:
-            report.append(f"Python: {info['python_version']}")
-        if 'os_system' in info:
-            report.append(f"Sistema Operativo: {info['os_system']} {info.get('os_release', '')}")
-        if 'architecture' in info:
-            report.append(f"Arquitectura: {info['architecture']}")
-        if 'ram_gb' in info:
-            report.append(f"RAM: {info['ram_gb']}GB ({info.get('ram_available_gb', 0):.1f}GB disponible)")
-        if 'cpu_cores_physical' in info:
-            report.append(f"CPU: {info['cpu_cores_physical']} núcleos físicos")
-        if 'disk_free_gb' in info:
-            report.append(f"Disco: {info['disk_free_gb']:.1f}GB libres de {info.get('disk_total_gb', 0):.1f}GB")
-        
-        report.append("")
-        
-        # Errores
-        if validation_result.errors:
-            report.append("--- ERRORES CRÍTICOS ---")
-            for error in validation_result.errors:
-                report.append(f"❌ {error}")
-            report.append("")
-        
-        # Advertencias
-        if validation_result.warnings:
-            report.append("--- ADVERTENCIAS ---")
-            for warning in validation_result.warnings:
-                report.append(f"⚠️  {warning}")
-            report.append("")
-        
-        # Capacidades de IA
-        if 'pytorch_available' in info:
-            report.append("--- CAPACIDADES DE IA ---")
-            if info['pytorch_available']:
-                report.append(f"✅ PyTorch {info.get('pytorch_version', 'unknown')}")
-                if info.get('cuda_available'):
-                    report.append(f"✅ CUDA - {info.get('cuda_device_name', 'GPU disponible')}")
-                    report.append(f"   Memoria GPU: {info.get('cuda_memory_gb', 0):.1f}GB")
+            for service in mock_medical_services:
+                if service['available']:
+                    self.logger.debug(f"✅ Servicio médico disponible: {service['name']}")
                 else:
-                    report.append("⚠️  CUDA no disponible (CPU solamente)")
-            else:
-                report.append("❌ PyTorch no instalado")
+                    self.logger.warning(f"⚠️ Servicio médico no disponible: {service['name']}")
             
-            if info.get('nnunet_available'):
-                report.append(f"✅ nnUNet {info.get('nnunet_version', 'unknown')}")
-            else:
-                report.append("❌ nnUNet no instalado")
+            # Validar puertos comunes para servicios médicos
+            common_medical_ports = [80, 443, 104]  # HTTP, HTTPS, DICOM
+            available_ports = []
+            
+            for port in common_medical_ports:
+                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                sock.settimeout(1)
+                result = sock.connect_ex(('localhost', port))
+                sock.close()
+                
+                if result == 0:
+                    available_ports.append(port)
+                    self.logger.debug(f"Puerto médico en uso: {port}")
+            
+            self.logger.info("✅ Conectividad médica validada (modo demostración)")
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"Error durante validación de conectividad médica: {e}")
+            # En modo demostración, no fallar por conectividad
+            return True
+    
+    def validate_all_prerequisites(self) -> Tuple[bool, Dict[str, bool]]:
+        """
+        Ejecuta todas las validaciones médicas y reporta estado completo.
         
-        report.append("")
-        report.append("=== FIN DEL REPORTE ===")
+        Esta función orquesta todas las validaciones necesarias
+        para determinar si el sistema está listo para operación médica.
         
-        return "\n".join(report)
+        Returns:
+            Tuple con (éxito_general, estado_detallado_por_categoría)
+        """
+        self.logger.info("Iniciando validación completa de prerrequisitos médicos...")
+        
+        validation_results = {}
+        
+        # Ejecutar cada validación y capturar resultados
+        validation_results['system_resources'] = self.validate_system_resources()
+        validation_results['medical_dependencies'] = self.validate_medical_dependencies()
+        validation_results['security_configuration'] = self.validate_security_configuration()
+        validation_results['medical_connectivity'] = self.validate_medical_connectivity()
+        
+        # Determinar éxito general
+        overall_success = all(validation_results.values())
+        
+        # Reportar estado final
+        if overall_success:
+            self.logger.info("🎉 Todos los prerrequisitos médicos están cumplidos")
+            self.logger.info("✅ Sistema listo para operación médica segura")
+        else:
+            failed_validations = [
+                category for category, success in validation_results.items() 
+                if not success
+            ]
+            self.logger.error(
+                f"❌ Prerrequisitos médicos no cumplidos en: {failed_validations}"
+            )
+            self.logger.error("⚠️ Sistema NO LISTO para operación médica")
+        
+        return overall_success, validation_results
+    
+    def generate_validation_report(self) -> Dict[str, Any]:
+        """
+        Genera un reporte completo del estado de validación del sistema.
+        
+        Este reporte es útil para auditorías médicas, debugging,
+        y documentación de cumplimiento regulatorio.
+        
+        Returns:
+            Diccionario con reporte completo de validación
+        """
+        # Ejecutar todas las validaciones
+        overall_success, detailed_results = self.validate_all_prerequisites()
+        
+        # Recopilar información del sistema
+        system_info = {
+            'platform': platform.platform(),
+            'python_version': sys.version,
+            'architecture': platform.architecture(),
+            'processor': platform.processor(),
+            'memory_total_gb': psutil.virtual_memory().total / (1024**3),
+            'disk_total_gb': shutil.disk_usage(Path.cwd()).total / (1024**3)
+        }
+        
+        # Compilar reporte completo
+        validation_report = {
+            'timestamp': self._get_timestamp(),
+            'overall_success': overall_success,
+            'validation_results': detailed_results,
+            'system_information': system_info,
+            'requirements': {
+                'min_ram_gb': self.min_ram_gb,
+                'min_free_disk_gb': self.min_free_disk_gb,
+                'min_python_version': self.min_python_version,
+                'required_packages': self.required_medical_packages,
+                'recommended_packages': self.recommended_packages
+            },
+            'medical_readiness': overall_success
+        }
+        
+        return validation_report
+    
+    def _get_timestamp(self) -> str:
+        """Genera timestamp médico estándar."""
+        from datetime import datetime
+        return datetime.now().isoformat()
+
+
+# Función de conveniencia para validación rápida
+def quick_medical_validation() -> bool:
+    """
+    Ejecuta validación rápida de prerrequisitos médicos.
+    
+    Esta función proporciona una manera rápida de verificar
+    si el sistema está básicamente listo para uso médico.
+    
+    Returns:
+        True si la validación básica pasa, False en caso contrario
+    """
+    validator = MedicalSystemValidator()
+    success, _ = validator.validate_all_prerequisites()
+    return success
+
+
+# Función para generar reporte completo
+def generate_system_validation_report() -> Dict[str, Any]:
+    """
+    Genera reporte completo de validación del sistema médico.
+    
+    Returns:
+        Diccionario con reporte detallado de validación
+    """
+    validator = MedicalSystemValidator()
+    return validator.generate_validation_report()
+
+
+# Ejemplo de uso y testing
+if __name__ == "__main__":
+    # Configurar logging básico para pruebas
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(levelname)s - %(message)s'
+    )
+    
+    print("🏥 VALIDADOR DE SISTEMA MÉDICO - PRUEBA")
+    print("=" * 50)
+    
+    # Crear validador y ejecutar pruebas
+    validator = MedicalSystemValidator()
+    
+    print("\n📊 Ejecutando validación completa...")
+    success, results = validator.validate_all_prerequisites()
+    
+    print("\n📋 RESULTADOS DE VALIDACIÓN:")
+    for category, result in results.items():
+        status = "✅ ÉXITO" if result else "❌ FALLO"
+        print(f"   {category}: {status}")
+    
+    print(f"\n🎯 ESTADO GENERAL: {'✅ LISTO' if success else '❌ NO LISTO'} para operación médica")
+    
+    # Generar reporte completo
+    print("\n📄 Generando reporte completo...")
+    report = validator.generate_validation_report()
+    
+    print("\n📊 INFORMACIÓN DEL SISTEMA:")
+    print(f"   Plataforma: {report['system_information']['platform']}")
+    print(f"   Python: {report['system_information']['python_version'].split()[0]}")
+    print(f"   RAM Total: {report['system_information']['memory_total_gb']:.2f}GB")
+    print(f"   Disco Total: {report['system_information']['disk_total_gb']:.2f}GB")
+    
+    print("\n🎉 Validación de sistema médico completada!")

@@ -22,27 +22,27 @@ from PyQt6.QtCore import Qt, QTimer, pyqtSignal, QThread, QSize
 from PyQt6.QtGui import QAction, QIcon, QFont, QPalette, QColor, QPixmap
 
 # Importar widgets personalizados que crearemos
-from .widgets.image_viewer_2d import ImageViewer2D
-from .widgets.volume_viewer_3d import VolumeViewer3D
-from .widgets.segmentation_panel import SegmentationPanel
-from .widgets.measurement_tools import MeasurementToolsPanel
-from .widgets.patient_browser import PatientBrowserPanel
+from infrastructure.ui.widgets.image_viewer_2d import ImageViewer2D
+#from infrastructure.ui.widgets.volume_viewer_3d import VolumeViewer3D
+from infrastructure.ui.widgets.segmentation_panel import SegmentationPanel
+#from infrastructure.ui.widgets.measurement_tools import MeasurementToolsPanel
+from infrastructure.ui.widgets.patient_browser import PatientBrowserPanel
 
 # Importar servicios de aplicación
-from ...application.services.image_services import (
+from application.services.image_services import (
     ImageLoadingService, ImageVisualizationService
 )
-from ...application.services.segmentation_services import (
+from application.services.segmentation_services import (
     AISegmentationService, SegmentationEditingService
 )
 
 # Importar repositorios
-from ...infrastructure.storage.dicom_repository import DICOMImageRepository
-from ...infrastructure.visualization.vtk_renderer import MedicalVTKRenderer
+from infrastructure.storage.dicom_repository import DICOMImageRepository
+from infrastructure.visualization.vtk_renderer import MedicalVTKRenderer
 
 # Importar entidades del dominio
-from ...domain.entities.medical_image import MedicalImage
-from ...domain.entities.segmentation import MedicalSegmentation
+from domain.entities.medical_image import MedicalImage
+from domain.entities.segmentation import MedicalSegmentation
 
 
 class MedicalImagingMainWindow(QMainWindow):

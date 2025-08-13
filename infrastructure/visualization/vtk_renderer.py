@@ -12,8 +12,8 @@ import vtk
 from vtk.util import numpy_support
 import asyncio
 
-from ...domain.entities.medical_image import MedicalImage, ImageSpacing
-from ...domain.entities.segmentation import MedicalSegmentation, AnatomicalRegion
+from domain.entities.medical_image import MedicalImage, ImageSpacing
+from domain.entities.segmentation import MedicalSegmentation, AnatomicalRegion
 
 
 class MedicalVTKRenderer:

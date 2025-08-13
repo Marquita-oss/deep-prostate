@@ -18,11 +18,11 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt, pyqtSignal, QTimer, QThread, QMutex
 from PyQt6.QtGui import QColor, QPixmap, QIcon, QFont
 
-from ....domain.entities.medical_image import MedicalImage
-from ....domain.entities.segmentation import (
+from domain.entities.medical_image import MedicalImage
+from domain.entities.segmentation import (
     MedicalSegmentation, AnatomicalRegion, SegmentationType, ConfidenceLevel
 )
-from ....application.services.segmentation_services import (
+from application.services.segmentation_services import (
     AISegmentationService, SegmentationEditingService
 )
 
