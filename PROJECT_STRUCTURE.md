@@ -1,3 +1,4 @@
+'''
 medical_imaging_workstation/
 │
 ├── 📄 main.py                           # Punto de entrada principal
@@ -95,3 +96,4 @@ medical_imaging_workstation/
     ├── 📁 icons/                       # Iconos de la interfaz
     ├── 📁 themes/                      # Temas visuales
     └── 📁 fonts/                       # Fuentes personalizadas
+'''
